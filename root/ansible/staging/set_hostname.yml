@@ -1,0 +1,36 @@
+---
+- name: Set hostname
+  hosts: spine
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - spine
+  
+  vars:
+    playbook_name: "Set hostname"
+
+  tasks:
+    - block:
+        - name: Set hostname
+          nxos_config:
+            lines: hostname {{ inventory_hostname }}
+            provider: "{{ nxapi }}"
+          tags:
+            - set_hostname
+        - name: Notify on success
+          set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  success configure on {{ inventory_hostname }}"
+          changed_when: True
+          notify: notify using spark
+      ignore_errors: False
+      rescue:
+        - set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  error configure on {{ inventory_hostname }}"
+          changed_when: True          
+          notify: notify using spark
+...

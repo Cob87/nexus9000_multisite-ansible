@@ -1,0 +1,42 @@
+---
+- name: Save and Backup the configuration
+  hosts: spine
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - spine
+  
+  vars:
+    playbook_name: "Save and backup the configuration"
+
+  tasks:
+    - block:
+        - name: "Save the configuration"
+          nxos_config:
+            lines: copy running-config startup-config 
+            provider: "{{ cli }}"
+          tags:
+            - save_configuration
+        - name: "Backup the configuration"
+          nxos_config:
+            backup: yes
+            provider: "{{ cli }}"
+          tags:
+            - backup_configuration
+        - name: Notify on success
+          set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  success configure on {{ inventory_hostname }}"
+          changed_when: True
+          notify: notify using spark
+      ignore_errors: False
+      rescue:
+        - set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  error configure on {{ inventory_hostname }}"
+          changed_when: True          
+          notify: notify using spark
+...

@@ -1,0 +1,16 @@
+---
+vpc_domain: 1000
+vpc_priority: 200
+vpc_system_priority: 2000
+vpc_pl_src: "192.168.100.153"
+vpc_pl_dst: "192.168.100.152"
+vpc_pl_vrf: management
+vpc_peer_gw: true
+vpc_auto_recovery: true
+vpc_delay_restore: 150
+vpc_pl_po_members: ['Ethernet1/49']
+vpc_pl_po_id: 4096
+license_file_path: "/tftpboot/licenses/{{ inventory_hostname }}"
+license_file_name:
+  - "MDS20170809075525186.lic"
+...

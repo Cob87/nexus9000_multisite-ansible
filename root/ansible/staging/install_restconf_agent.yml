@@ -1,0 +1,58 @@
+---
+- name: Install RESTConf Agent
+  hosts: spine
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - spine
+  
+  vars:
+    playbook_name: "Install RESTConf Agent"
+
+  tasks:
+    - block:
+        - name: Ensure bash-shell is enabled
+          nxos_feature:
+            feature: bash-shell
+            state: enabled
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - enable_feature_bash-shell
+        - name: Ensure scp-server is enabled
+          nxos_feature:
+            feature: scp-server
+            state: enabled
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - enable_feature_scp-server
+        - name: Copy RESTConf script
+          command: "scp -i {{ bash['ssh_keyfile'] }} {{scripts_dir}}/{{ install_restconf_agent_script }} {{ bash['username'] }}@{{ inventory_hostname }}:~" 
+          tags:
+            - install_netconf_packages
+        - name: Install RESTConf Agent
+          command: "ssh -i {{ bash['ssh_keyfile'] }} {{ bash['username'] }}@{{ inventory_hostname }} /bin/bash /var/home/{{ bash['username'] }}/{{ install_restconf_agent_script }}"
+          register: get_netconfig_packages_output
+          failed_when: "'FAIL' in get_netconfig_packages_output.stdout" 
+          tags:
+            - install_restconf_packages
+        - name: Notify on success
+          set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  success configure on {{ inventory_hostname }}"
+          changed_when: True
+          notify: notify using spark
+      ignore_errors: False
+      rescue:
+        - set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  error configure on {{ inventory_hostname }}"
+          changed_when: True          
+          notify: notify using spark
+...

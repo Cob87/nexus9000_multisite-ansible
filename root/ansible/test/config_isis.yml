@@ -1,0 +1,26 @@
+---
+- name: Config ISIS
+  hosts: leaf
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - leaf
+  
+  vars:
+    playbook_name: "Config ISIS"
+
+  tasks:
+    - block:
+        - name: Config ISIS
+          nxos_config:
+            lines: 
+              - is-type level-1
+            parents: router isis test
+            provider: "{{ nxapi }}"
+          tags:
+            - config_isis
+      ignore_errors: False
+...

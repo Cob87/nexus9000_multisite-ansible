@@ -1,0 +1,119 @@
+---
+- name: Deploy vPC on Spine
+  hosts: spine
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - spine
+  
+  vars:
+    playbook_name: "Deploy vPC on Spine"
+
+  tasks:
+    - block:
+        - name: Ensure LACP is enabled
+          nxos_feature:
+            feature: lacp
+            state: enabled
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - enable_feature_lacp
+        - name: Ensure vPC is enabled
+          nxos_feature:
+            feature: vpc
+            state: enabled
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - enable_feature_vpc
+        - name: Configure vPC global parameters
+          nxos_vpc:
+            state: present
+            domain: "{{ vpc_domain }}"
+            role_priority: "{{ vpc_priority }}"
+            system_priority: "{{ vpc_system_priority }}"
+            pkl_dest: "{{ vpc_pl_dst }}"
+            pkl_src: "{{ vpc_pl_src }}"
+            pkl_vrf: "{{ vpc_pl_vrf }}"
+            peer_gw: "{{ vpc_peer_gw }}"
+            auto_recovery: "{{ vpc_auto_recovery }}"
+            delay_restore: "{{ vpc_delay_restore }}"
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - enable_vpc_parameters
+        - name: Configure vPC global extra parameters
+          nxos_config:
+            lines: 
+              - ip arp synchronize
+              - ipv6 nd synchronize
+              - layer3 peer-router
+            parents: vpc domain {{ vpc_domain }}
+            timeout: 30
+            provider: "{{ cli }}" 
+          tags:
+            - enable_vpc_parameters
+        - name: Activate PL portchannel interfaces
+          nxos_interface:
+            interface: "{{ item }}" 
+            state: present
+            admin_state: up
+            description: "vPC peer-link port-channel"
+            mode: layer2
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          with_items: "{{ vpc_pl_po_members }}" 
+          tags:
+            - configure_vpc_eth_pl
+        - name: Create vPC PL portchannel
+          nxos_portchannel:
+            state: present
+            group: "{{ vpc_pl_po_id }}"
+            members: "{{ vpc_pl_po_members }}"
+            mode: active
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - create_vpc_po_pl
+        - name: Configure vPC PL portchannel
+          nxos_vpc_interface:
+            state: present
+            portchannel: "{{ vpc_pl_po_id }}"
+            peer_link: True
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - create_vpc_po_pl
+        - name: Configure vPC PL portchannel as trunk
+          nxos_switchport:
+            interface: "port-channel{{ vpc_pl_po_id }}"
+            mode: trunk
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - create_vpc_po_pl
+        - name: Notify on success
+          set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  success configure on {{ inventory_hostname }}"
+          changed_when: True
+          notify: notify using spark
+      ignore_errors: False
+      rescue:
+        - set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  error configure on {{ inventory_hostname }}"
+          changed_when: True          
+          notify: notify using spark
+...

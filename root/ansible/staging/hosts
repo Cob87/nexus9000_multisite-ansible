@@ -1,0 +1,6 @@
+[all:vars]
+ansible_connection = local
+[spine]
+FDO21050FUA
+FDO20400MVA
+[leaf]

@@ -1,0 +1,51 @@
+---
+- name: Install licenses
+  hosts: spine
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - spine
+  
+  vars:
+    playbook_name: "Install licenses"
+
+  tasks:
+    - block:
+        - name: Ensure scp-server is enabled
+          nxos_feature:
+            feature: scp-server
+            state: enabled
+            username: "{{ nxapi['username'] }}"
+            password: "{{ nxapi['password'] }}"
+            transport: "{{ nxapi['transport'] }}"
+          tags:
+            - enable_feature_scp-server
+        - name: Copy licenses
+          command: scp -i {{ cli['ssh_keyfile'] }} {{ license_file_path }}/{{ item }} {{ cli['username'] }}@{{ inventory_hostname }}:bootflash:{{ item }}
+          with_items: "{{ license_file_name }}"
+          tags:
+            - copy_licenses
+        - name: Install licenses
+          command: "ssh -i {{ cli['ssh_keyfile'] }} {{ cli['username'] }}@{{ inventory_hostname }} install license bootflash:{{ item }}" 
+          with_items: "{{ license_file_name }}"
+          register: install_licenses_output
+          failed_when: "'Installing license failed' in install_licenses_output.stdout"
+          tags:
+            - install_licenses
+        - name: Notify on success
+          set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  success configure on {{ inventory_hostname }}"
+          changed_when: True
+          notify: notify using spark
+      ignore_errors: False
+      rescue:
+        - set_fact:
+            trigger_msg: True
+            send_msg: "{{ playbook_name }} -  error configure on {{ inventory_hostname }}"
+          changed_when: True          
+          notify: notify using spark
+...

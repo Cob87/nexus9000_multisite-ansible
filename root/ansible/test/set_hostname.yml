@@ -1,0 +1,24 @@
+---
+- name: Set hostname
+  hosts: leaf
+  connection: local
+  gather_facts: no
+  strategy: free
+  
+  roles:
+    - common
+    - leaf
+  
+  vars:
+    playbook_name: "Set hostname"
+
+  tasks:
+    - block:
+        - name: Set hostname
+          nxos_config:
+            lines: hostname {{ inventory_hostname }}
+            provider: "{{ nxapi }}"
+          tags:
+            - set_hostname
+      ignore_errors: False
+...
